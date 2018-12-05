@@ -1,0 +1,98 @@
+﻿动画状态机
+相当于动画的管理人员
+动画片段由动画状态机控制
+当游戏物体进入到动画状态机时 默认转换到箭头指向的动画播放
+
+控制小人运动
+检测到按键->判断向哪动->每次动一个单位->transform.position+=new vector(x,y)->用xy单位向量来控制移动
+->告诉动画状态机我要向哪里移动->播放对应动画
+
+动画状态机接受的参数是对应的vector坐标
+parameter - 参数 通过设置一些参数 用对应参数的改变来控制动画切换
+any state 任何状态 可以通过该状态来控制其它状态 
+状态之间的连线：当处于某个状态时 如果达成了连线上面的condition 就会自动切换到连线指向的状态
+这就是动画的切换 当我们按下上下左右键时 传递对应的vector的X Y 值 通过设置anystate与四个方向的状态的连线的达成条件 让他可以从任何状态中转换到下一状态
+为了防止动画播放出现卡顿不流畅 不允许状态自己转换到自己
+在每个状态的setting中控制  can transition to self 把钩子去掉
+在2D动画中要把动画之间的融合去掉 在每个箭头的时间轴位置把不是该状态的动画拉消失
+动画状态机设置：对状态加线 设定好用于控制状态的参数 在线上设定好对应状态触发的条件
+
+重写动画状态机：当有大量角色的动画状态完全一致时 为了避免重复工作 我们使用一个状态机来进行重写操作
+来播放其他角色的动画。
+在对应的文件夹创建一个动画状态重写机（animation overri controller）然后将原生状态机（要重写的状态机）拖入，再把对应状态拖入进去即可
+
+要碰撞必须需要collider组件（碰撞器） 并且必须有一个碰撞体携带刚体组件
+一般游戏角色都需要上述两个组件 一个控制和地形的碰撞 一个控制角色的物理动作和物理效果
+2D游戏中需要把rigidbody2D中的gravity设置为0
+一个物体如果要移动 有两种方法：1.通过改变物体的transform组件中的坐标来移动 2.通过刚体组件来控制移动
+首选使用刚体组件
+
+让物体按照规定的路径移动 使用提前标记好路径点的方法让他一个一个点的移动 
+先把所有的路径点存入一个数组中 再用上述的方法 遍历每个路径点 当达到路径点的时候就会跳到下一个路径点 这里用if来进行条件判断 即路径点的坐标是否等于当前物体的坐标
+如果相等就把数组索引index进行++
+
+FixedUpdate方法 有关物理的移动都写在这个方法里 防止因为电脑机能的问题导致一些bug
+控制移动的方法 我们用vector2.movetowards方法+rigidbody里的moveposition方法
+前者是让一个向量从当前位置移动到下一个位置 后者是让挂载刚体的物体移动到参数位置
+即先获得目标位置的点 再把点告诉刚体 让刚体去移动。
+
+射线检测目标位置是否可移动
+physics2D.linecast（要去的地方，当前地方）方法 即从要去的地方打一条射线到当前位置
+该方法返回一个raycast2Dhit类型的变量 然后返回hit.collider==getcomponent<collider> 即射线打到的碰撞器是否等于主角的碰撞器
+如果等于就可以动 不等于就不能动 
+这就是常用的射线检测方法、
+
+让键盘控制与动画关联
+先用getcomponent获取animator组件 再通过set...方法 设置对应参数的值。
+
+collider组件的触发器trigger
+勾选了is trigger触发器的话 碰撞体就会失去碰撞效果而转变为检测是否有物体进入碰撞体
+我们可以在脚本中用 OnTrrigerEnter2D（collider2d	collision）来写触发碰撞期后需要的效果或者是功能；
+
+用取模运算来实现数组循环 index=(index+1)%array.length;可以让数组一直循环取值不会越界
+
+游戏重新开始 直接重载场景即可 用sencemanager.loadsence即可
+让游戏物体隐藏或者出现 用setactive(bool)方法。
+
+获取鼠标点击的坐标 用射线检测
+当鼠标按下时 从按下位置发射一条射线与地面碰撞 然后用一个raycasthit来接受碰撞信息
+用physics.raycast方法来将碰撞信息保存到raycasthit中
+代码为：
+			Ray	ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+                RaycastHit hit;
+               bool isCollider =  Physics.Raycast(ray,out hit);
+			   这样就可以吧碰撞到的物体信息存到hit中了
+			   再使用
+			   hit.collider.gameobject即可找到对应的游戏物体
+			   
+导航系统 navemash agent 即自动寻路 需要先烘焙导航网格 再给对应的游戏物体添加对应组件 把鼠标点击的对应的坐标通过代码传递给寻路组件 完成寻路功能
+
+让摄像机跟随人物移动
+首先先调整好摄像机位置 然后获取他们的一个相对偏移 在代码中让摄像机的位置等于偏移+人物
+
+让摄像机进行移动
+		float h = Input.GetAxis("Horizontal");//控制左右移动
+        float v = Input.GetAxis("Vertical");
+		float mouse = Input.GetAxis("Mouse ScrollWheel");//控制放大缩小
+		//获取水平按键和垂直按键和滚轮按键
+		在用 transform.Translate(new Vector3(h, mouse*mouseSpeed, v) * Time.deltaTime*smoothSpeed,Space.World);即可进行摄像机的移动
+
+协程的用法 
+ IEnumerator
+ 
+ 
+ 我们可以使用gameobject里面的initiate方法来把保存好的prefab进行实例化 这是我们凭空生成一些物体常用的方式
+ 
+UI系统
+常用的有text（文本ui）image（图片ui）toggle（勾选ui）等等来设计我们的ui界面 ui下可以添加各种监听事件
+常用的监听组件有button 我们可以在代码中写一些方法来控制按下按钮后的效果 然后再button组件中去进行监听
+
+
+3D游戏
+
+3D游戏角色控制使用character contorller来进行
+
+
+
+
+ 
